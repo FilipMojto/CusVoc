@@ -1,12 +1,12 @@
 # CusVoc App
 
 
-CusVoc is a cross-platform application that is mainly intended for users who are trying to memorize words or phrases from their second languages. Words are stored locally via a __SQLite database__. CusVoc also sends requests to a __Public Vocabulary API__ in order to quickly access words and their definitions. Application is currently being implemented as a __Python Script__.
+CusVoc is a cross-platform application that is mainly intended for users who are trying to memorize words or phrases from their second languages. The application contains various mechanisms for effective Word Memorization, e. g. sentences or images. The application also utilizes various __Public Dictionary APIs__ for having a reliable source of data.  Application is currently being implemented in a form of __Python Script__.
 
 > This project is still under active development, see _Versioning_ section for more info.
 
 
-## Libraries
+## Required Libraries
 
 <!-- __Requests__ - for sending HTTP requests to the Public Dictionary API -->
 <!-- nltk -->
@@ -48,20 +48,59 @@ Contains local data stored in __external files__. This is mainly the __personal 
 
 Contains additional documentation to the project.
 
-## Versioning
+## Latest Release
 
 During development we adhere to __Semantic Versioning__ which is a systematic way of developing software and keeping track of the changes made.
 
 
-### 0.1.0
+## 0.2.0
 
-The very first release of __CusVoc Script__ is here! CusVoc now provides APIs for __Vocabulary Maintenance__ and __Vocabulary Testing__.
+During development of this version we mainly focused on introducing many new features that would enhance the user's experience with the app. We also tested the update by adding some new entries while laying focus on vocabulary's CRUD operations and testvoc's TCP algorithm.
 
-We are still testing the app by adding new words to our vocabulary to __detect possible bugs__ or __missing features__.
+### New Features
 
-#### Release Date
 
-28.08.2024
+1. __AudioPron__
+    
+    - Play pronunciation clip of your words thanks to an online dictionary API. You can also store these clips locally via _mp3 files_ to be able to play them offline.
+    - __Relevant Commands:__ _'-l'_, _'-p'_ and _'-a'_
+
+2. __Filtering Mechanism__
+
+    - Filter entries or lexemes to be printed to the console thanks to using a new simple filtering system. 
+    - __Relevant Commands:__ _'-e'_, _'-l'_ and _'--where'_
+
+3. __For-Practice Entries:__
+
+    - Flag __hard-to-learn entries__ with for-practice flag and you'll be able to put extra focus on them when testing.
+    - __Relevant Commands:__ _'-e'_, _'-c'_, _'-t'_, _'--practice'_
+4. __Imprting&Exporting Feature__
+    - Another way of inserting entries into your vocabulary is by __importing an Entry File__. You can also __export__ your vocabulary into a file and import it elsewhere. PLease note, that these files should follow some popular tabular format, ideally __.tsv__.
+    - __Relevant Commands:__ _'--import-file'_, _'--export-file'_, _'--delimiter'_
+
+
+
+### Changes Made
+
+1. _'--apend'_ command changed to _'--create'_
+2. _'-c'_ command (originally as a shortcut for _'--category'_) changed to _'-ctg'_
+
+
+### Bug Fixes
+
+#### testvoc
+
+1. Error in __TCP Algorithm__.
+    
+    - After testing all words an error appeared which made us change the way of how the algorithm works. The error should now be fixed.
+
+### Release Date
+
+08.09.2024
+
+> For complete history and in-depth documentation of all releases of CusVoc App please check _releases.md_ file in _docs_ directory.
+
+
 
 
 

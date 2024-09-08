@@ -1,2 +1,4 @@
 .venv
+.vscode
 src/test.py
+docs/cusvoc_full_docs.md
