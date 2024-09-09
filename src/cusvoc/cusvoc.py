@@ -13,12 +13,10 @@
 """
 
 
+
 __author__ = 'fimo_IT'
 __version__ = '0.2.0'
 
-
-DEF_DB_PATH = '../data/vocabulary.db'
-PUBLIC_DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/" # append a word here to get its data
 
 
 
@@ -30,7 +28,27 @@ import os
 
 from vocabulary import Vocabulary
 from audiopron import PhoneticsAudioManager
-from language import LexicalCategory
+from language import GrammaticalCategory, UsageLabel
+
+
+# DEF_DB_PATH = '../../data/vocabulary.db'
+
+# ensures that DEF_DB_PATH is always relative to the location of the script file,
+# not the directory from which the script is run.
+
+## CONSTANTS 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEF_DB_PATH = os.path.join(BASE_DIR, '../../data/vocabulary.db')
+
+PUBLIC_DICTIONARY_API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/" # append a word here to get its data
+
+## ENTRY FILES
+
+
+DEF_IMPORT_FILE_PATH =  os.path.join(BASE_DIR, '../../data/imports/vocabulary.tsv')
+DEF_EXPORT_FILE_PATH =  os.path.join(BASE_DIR, '../../data/exports/vocabulary.tsv')
+DEF_FILE_DELIMITER = '\t'
 
 class EFF(Enum):
     """
@@ -45,17 +63,15 @@ class EFF(Enum):
     for_practice = 'for_practice'
     pac_file = 'pac_file'
 
-
 ENTRY_FILE_FIELDS = [field.value for field in EFF]
-DEF_IMPORT_FILE_PATH = '../data/imports/vocabulary.tsv'
-DEF_EXPORT_FILE_PATH = '../data/exports/vocabulary.tsv'
-DEF_FILE_DELIMITER = '\t'
+
 
 
 
 
 
 def import_entries(vocabulary: Vocabulary, audio_manager: PhoneticsAudioManager, f_path: str = DEF_IMPORT_FILE_PATH):
+    from cuslog import FunctionLogger
 
     with open(file=f_path, mode='r', encoding='utf-8') as src_file:
         
@@ -66,18 +82,29 @@ def import_entries(vocabulary: Vocabulary, audio_manager: PhoneticsAudioManager,
         
         # Iterate over each row in the CSV
         for row in reader:
+            # print(vocabulary.__str__())
+            # print(row)
 
-            try:
-                vocabulary.create_lexical_entry(
+            FunctionLogger.execute(fun=lambda: vocabulary.create_lexical_entry(
                     lexeme=row[EFF.lexeme.value],
                     definition=row[EFF.definition.value],
-                    category=row[EFF.lexical_category.value],
+                    category=GrammaticalCategory[row[EFF.lexical_category.value]],
                     collocate=row[EFF.collocate.value] if row[EFF.collocate.value] else None,
                     sentence=row[EFF.sentence.value] if row[EFF.sentence.value] else None,
                     for_practice=bool(int(row[EFF.for_practice.value])) if row[EFF.for_practice.value] else False
-                )
-            except Exception as e:
-                pass
+                ), end_msg="Operation successful!", exception_msg="Operation unsuccessful:", exception=Exception)#, exception=Exception, exception_msg="Operation unsuccessful: ")
+
+            # try:
+            #     vocabulary.create_lexical_entry(
+            #         lexeme=row[EFF.lexeme.value],
+            #         definition=row[EFF.definition.value],
+            #         category=GrammaticalCategory[row[EFF.lexical_category.value]],
+            #         collocate=row[EFF.collocate.value] if row[EFF.collocate.value] else None,
+            #         sentence=row[EFF.sentence.value] if row[EFF.sentence.value] else None,
+            #         for_practice=bool(int(row[EFF.for_practice.value])) if row[EFF.for_practice.value] else False
+            #     )
+            # except Exception as e:
+            #     raise e
             
             # PAC files are automatically created if required
             if row['pac_file'] and int(row['pac_file']):
@@ -119,10 +146,10 @@ def export_entries(vocabulary: Vocabulary, f_path: str = DEF_EXPORT_FILE_PATH):
 
         
 
-part_of_speech_choices = []
+# part_of_speech_choices = []
 
-for POS in LexicalCategory:
-    part_of_speech_choices.append(POS.name)
+# for POS in GrammaticalCategory:
+#     part_of_speech_choices.append(POS.name)
 
 parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -161,10 +188,12 @@ parser.add_argument('-e', '--entry', metavar='ID', nargs="*", help="If no argume
 parser.add_argument('-c', '--create', action='store_true', help="Serves as a flag to indicate that the entry will be inserted into database.")
 
 ### alternative 1: adding entry manually via Console
-parser.add_argument('-d', '--definition', nargs="*", help="Uses the value as a definition when for instance when appending an entry.")
-parser.add_argument('-ctg', '--lexical-category', choices=part_of_speech_choices, help="Uses the value as a lexical category for instance when appending an entry.")
+parser.add_argument('-d', '--definition', nargs="+", help="Uses the value as a definition when for instance when appending an entry.")
+parser.add_argument('-ctg', '--lexical-category', choices=[c.name for c in GrammaticalCategory], help="Uses the value as a lexical category for instance when appending an entry.")
+parser.add_argument('--label', nargs="*", choices=[l.name for l in UsageLabel], help="Requires one or more strings representing Label(s) Of Usage within the entry.")
 parser.add_argument('-col', '--collocate', nargs="*", help="Uses the value as a collocate for instance when appending an entry.")
 parser.add_argument('-s', '--sentence', nargs="*", help="Uses the value as a sentence linked for example to a particular entry.")
+
 # parser.add_argument('--practice', action='store_true', help="If provided, created entry is is set for practice.")
 
 
@@ -242,11 +271,12 @@ def main():
     import os
 
 
-    from language import LexicalCategory
+    from language import GrammaticalCategory
     from vocabulary import Vocabulary, Lexeme
 
     from testvoc import Tester, TestQuestion
     from audiopron import PhoneticsAudioManager, extract_audio_content_from_api, play_temp_audio_file
+    from cuslog import FunctionLogger
 
 
     base_dir = Path.home()
@@ -264,23 +294,23 @@ def main():
     os.makedirs(name=app_dir.__str__() + '/audio/PAC_files/', exist_ok=True)
 
 
-    def create_lexeme_entry(lexeme: str, definition: str, category: LexicalCategory, collocate: str = None, sentence: str = None, for_practice: bool = False):
+    # def create_lexeme_entry(lexeme: str, definition: str, category: GrammaticalCategory, collocate: str = None, sentence: str = None, for_practice: bool = False):
 
-        try:
-            # vocabulary.create_lexical_entry(lexeme=lexeme)
+    #     try:
+    #         # vocabulary.create_lexical_entry(lexeme=lexeme)
 
-            vocabulary.create_lexical_entry(lexeme=lexeme,
-                                            definition=definition,
-                                            category=category,
-                                            collocate=collocate,
-                                            sentence=sentence,
-                                            for_practice=for_practice)
+    #         vocabulary.create_lexical_entry(lexeme=lexeme,
+    #                                         definition=definition,
+    #                                         category=category,
+    #                                         collocate=collocate,
+    #                                         sentence=sentence,
+    #                                         for_practice=for_practice)
             
-            print("Operation successful!")
+    #         print("Operation successful!")
 
-        except Exception as e:
+    #     except Exception as e:
       
-            print(f"Operation unsuccessful: {e}")
+    #         print(f"Operation unsuccessful: {e}")
 
 
     
@@ -352,18 +382,40 @@ def main():
 
 
     elif args.entry is not None:
-        lexical_entry = " ".join(args.entry)
+        lexeme = " ".join(args.entry)
  
         if args.create:
+            
+            FunctionLogger.execute(fun=vocabulary.create_lexical_entry(
+                    lexeme=lexeme,
+                    definition=" ".join(args.definition),
+                    category=GrammaticalCategory[args.lexical_category],
+                    usage_labels=[UsageLabel[l] for l in args.label] if args.label else None,
+                    collocate=" ".join(args.collocate) if args.collocate else None,
+                    sentence=" ".join(args.sentence) if args.sentence else None,
+                    for_practice=True if not args.practice else False
+                ), exception=Exception, end_msg="Operation Successful!", exception_msg="Operation unsuccessful: ")
 
+            # try:
+            #     vocabulary.create_lexical_entry(
+            #         lexeme=lexeme,
+            #         definition=" ".join(args.definition),
+            #         category=GrammaticalCategory[args.lexical_category],
+            #         usage_labels=[UsageLabel[l] for l in args.label] if args.label else None,
+            #         collocate=" ".join(args.collocate) if args.collocate else None,
+            #         sentence=" ".join(args.sentence) if args.sentence else None,
+            #         for_practice=True if not args.practice else False
+            #     )
+            # except Exception as e:
+            #     raise e
 
-            # else:
-            create_lexeme_entry(lexeme=lexical_entry,
-                                definition=" ".join(args.definition),
-                                category=LexicalCategory[args.lexical_category],
-                                collocate=" ".join(args.collocate) if args.collocate else None,
-                                sentence=" ".join(args.sentence) if args.sentence else None,
-                                for_practice=True if len(args.practice) == 0 else False)
+            # # else:
+            # create_lexeme_entry(lexeme=lexical_entry,
+            #                     definition=" ".join(args.definition),
+            #                     category=GrammaticalCategory[args.lexical_category],
+            #                     collocate=" ".join(args.collocate) if args.collocate else None,
+            #                     sentence=" ".join(args.sentence) if args.sentence else None,
+            #                     for_practice=True if len(args.practice) == 0 else False)
 
 
                 
@@ -380,13 +432,13 @@ def main():
 
         else:
             
-            if lexical_entry.isdigit():
-                print(vocabulary.__lexical_entry__(filter=Vocabulary.EntryFilter(field='id', operator='==', value=lexical_entry)))
+            if lexeme.isdigit():
+                print(vocabulary.__lexical_entry__(filter=Vocabulary.EntryFilter(field='id', operator='==', value=lexeme)))
             else:
-                print(vocabulary.__lexical_entry__(filter=Vocabulary.EntryFilter(field='definition', operator='==', value=lexical_entry)))
+                print(vocabulary.__lexical_entry__(filter=Vocabulary.EntryFilter(field='definition', operator='==', value=lexeme)))
     
     elif args.import_file is not None:
-        import_entries(f_path=args.import_file[0] if args.import_file else DEF_IMPORT_FILE_PATH, audio_manager=audio_manager)
+        import_entries(f_path=args.import_file[0] if args.import_file else DEF_IMPORT_FILE_PATH, audio_manager=audio_manager, vocabulary=vocabulary)
 
 
     elif args.export_file is not None:
@@ -396,6 +448,10 @@ def main():
 
         if args.remove:
             vocabulary.delete_definition(ID=int(args.definition[0]))
+    
+    elif args.label is not None and not args.label and args.all:
+        print(vocabulary.__labels__(to_list=False))
+
 
 
     elif args.vocabulary:
@@ -406,17 +462,21 @@ def main():
             vocabulary.__lexemes__()
     
     elif args.test:
+        
+        if args.practice is not None:
+            practice_val = args.practice[0]
 
-        practice_val = args.practice[0]
-
-        if practice_val[-1] == '%':
-            value = int(practice_val[:-1])
-            mode = 'percentage'
-        elif practice_val.isdigit():
-            value = int(args.practice)
-            mode = 'count'
+            if practice_val[-1] == '%':
+                value = int(practice_val[:-1])
+                mode = 'percentage'
+            elif practice_val.isdigit():
+                value = int(args.practice)
+                mode = 'count'
+            else:
+                print("Invalid")
         else:
-            print("Invalid")
+            value = 0
+            mode=None
 
         
         questions: List[TestQuestion] = tester.test_vocabulary(number_of_tests=args.test[0], for_practice=value, practice_mode=mode)
@@ -425,19 +485,19 @@ def main():
             print("No words in dictionary! At least 1 required for testing.\n")
         
         else:
-            print("Assign correct lexemes to the following definitions: ")
+            print("Assign correct lexemes to the following definitions: ", end="\n\n")
 
             for index, question in enumerate(questions):
                 table = PrettyTable(field_names=['Expected Answer', 'Results', 'Sentence'])
 
-                print(f"{index + 1}. {str(question.ask())}: ", end="")
+                print(f'{index + 1}. "{str(question.ask())}": ', end="")
 
                 question.answer(lexeme=input(""))
 
                 print("\nTEST RESULTS")
                 entry = tester.submit_question(question=question)
                 
-                table.add_row([question.get_answer(), question.get_evaluation(), entry.sentence])
+                table.add_row([question.get_answer(), str(question.get_evaluation()) + "%", entry.sentence])
                 print(table)
                 print()
 

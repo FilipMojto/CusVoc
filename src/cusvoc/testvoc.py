@@ -71,15 +71,15 @@ class TestQuestion():
         if not self.__is_submitted:
             return None
         
-        return self.__answer
+        return self.__lexeme
     
     def ask(self):
         return self.__meaning
 
-    def get_question(self):
-        return self.__lexeme
-    
-    
+    # def get_question(self):
+    #     return self.__lexeme
+        
+        
     def evaluate(self, match_ratio: float):
         if not self.__is_submitted:
             return False
@@ -267,14 +267,14 @@ class Tester():
 
     def __get_questions(self, count: int, field_name: Literal['was_tested', 'was_practiced']):
         field = getattr(LexicalEntry, field_name)
-        print(field)
-        print(f"Entries: {len(LexicalEntry.select())}")
+        # print(field)
+        # print(f"Entries: {len(LexicalEntry.select())}")
         candidate_entries = LexicalEntry.select().where(LexicalEntry.for_practice == True) if field_name == 'was_practiced' else LexicalEntry.select()
 
         questions: List[TestQuestion] = []
         
         print(count)
-        print(f"Entries: {len(candidate_entries)}")
+        # print(f"Entries: {len(candidate_entries)}")
 
         if len(candidate_entries) < count:
             raise ContraintViolationError(message="Required test amount exceeds the number of entries for practice in database.")
@@ -284,7 +284,7 @@ class Tester():
         while count:
             # for_practice_entries.wher
             untested_candidates = list(candidate_entries.where(field == False))
-            
+            print(untested_candidates)
             for entry in untested_candidates:
                 if field == 'was_practiced':
                     entry.was_practiced = True
@@ -349,7 +349,7 @@ class Tester():
                 if not total_entry_count:
                     return None
 
-                print(total_entry_count)
+                # print(total_entry_count)
                 if number_of_tests > total_entry_count:
                     raise IllegalTesterState(message=f"Number of tests exceeds the total number of entries in database ({total_entry_count})")
 

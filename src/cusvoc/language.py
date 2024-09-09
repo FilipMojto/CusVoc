@@ -5,7 +5,7 @@
     Version: 0.1.0
 """
 
-__all__ = ['ARTICLES', 'COLLOCATES', 'SENTENCE_TERMINALS', 'is_singleword', 'is_sentence', 'LexicalCategory', 'LanguageSyntaxError']
+__all__ = ['ARTICLES', 'COLLOCATES', 'SENTENCE_TERMINALS', 'is_singleword', 'is_sentence', 'GrammaticalCategory', 'LanguageSyntaxError']
 __author__ = 'fimo_IT'
 __version__ = '0.1.0'
 
@@ -14,7 +14,7 @@ from enum import Enum
 
 
 ARTICLES = ('the', 'a', 'an')
-COLLOCATES = ('sb', 'sth', 'to sb', 'to sth', 'between sb', 'between sth', '<NOUN>', '<ADJECTIVE>', '<VERB>', '<ADVERB>') 
+COLLOCATES = ('sb', 'sth', 'to sb', 'to sth', 'between sb', 'between sth', 'with sb', 'with sth', '<NOUN>', '<ADJECTIVE>', '<VERB>', '<ADVERB>') 
 SENTENCE_TERMINALS = ('.', '?', '!')
 
 
@@ -29,7 +29,7 @@ def is_sentence(string: str):
 
 
 
-class LexicalCategory(Enum):
+class GrammaticalCategory(Enum):
     NOUN = 1
     PRONOUN = 2
     VERB = 3
@@ -42,6 +42,18 @@ class LexicalCategory(Enum):
     OPEN_COMPOUND = 10
     IDIOM = 11
     PHRASE = 12
+
+
+class UsageLabel(Enum):
+    FORMAL = 1
+    INFORMAL = 2
+    SLANG = 3
+    BRITISH = 4
+    AMERICAN = 5
+    JARGON = 6
+    LITERARY = 7
+    ARCHAIC = 8
+    VULGAR = 9
 
 
 

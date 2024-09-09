@@ -1,29 +1,37 @@
-from peewee import *
-from typing import List, Literal
+# --- SYSTEM LIBS ---
+
+from typing import List, Literal, Iterable
 from dataclasses import dataclass
 
-from prettytable import PrettyTable
 import os
 import time
 
 from sqlite3 import IntegrityError
 
+# --- EXTERNAL LIBS ---
 
+from prettytable import PrettyTable
+from peewee import *
 
-from language import LexicalCategory, LanguageSyntaxError, is_sentence
+# --- PACKAGE LIBS ---
+
+from language import GrammaticalCategory, LanguageSyntaxError, is_sentence, UsageLabel
 
 from seeds.collocates import seed_collocates
 from seeds.lexical_categories import seed_lexical_categories
+from seeds.usage_labels import seed_usage_labels
 
 from models.collocate import Collocate
 from models.definition import Definition
 from models.lexeme import Lexeme
 from models.lexical_category import LexicalCategoryModel
 from models.lexical_entry import LexicalEntry
+from models.usage_label import UsageLabelModel
+from models.entry_label import EntryLabel
 
 
 
-
+# --- EXCEPTIONS ---
 class ContraintViolationError(Exception):
 
     def __init__(self, message: str) -> None:
@@ -64,36 +72,31 @@ class Vocabulary():
             Tables lexeme_types and collocates are automatically seeded if not present.
         """
         
-
+        # --- CONFIGURING DATABASE --- #
         self.name = os.path.basename(db_file_path)
 
         self.db_file_path = db_file_path
         self.__database = SqliteDatabase(db_file_path)
         
-        
-        # Dynamically set the database for LexemeModel
-        Lexeme.set_database(self.__database)
-        Lexeme.set_table_name('lexemes')
-
-        Collocate.set_database(self.__database)
-        Collocate.set_table_name('collocates')
-
-        Definition.set_database(self.__database)
-        Definition.set_table_name('definitions')
-
-        LexicalCategoryModel.set_database(self.__database)
-        LexicalCategoryModel.set_table_name('lexical_categories')
-
-        LexicalEntry.set_database(self.__database)
-        LexicalEntry.set_table_name('lexical_entries')
+        # --- IMPORTING MODELS --- #
+        Lexeme.connect_db(db=self.__database, table_name='lexemes')
+        Collocate.connect_db(db=self.__database, table_name='collocates')        
+        Definition.connect_db(db=self.__database, table_name='definitions')
+        LexicalCategoryModel.connect_db(db=self.__database, table_name='lexical_categories')
+        LexicalEntry.connect_db(db=self.__database, table_name='lexical_entries')
+        UsageLabelModel.connect_db(db=self.__database, table_name='usage_labels')
+        EntryLabel.connect_db(db=self.__database, table_name='entry_labels')
 
 
         self.__database.connect()
-        self.__database.create_tables([Lexeme, Collocate, Definition, LexicalCategoryModel, LexicalEntry])
+        self.__database.create_tables([Lexeme, Collocate, Definition, LexicalCategoryModel, LexicalEntry, UsageLabelModel, EntryLabel])
 
+
+        # --- SEEDING DATA --- #
 
         seed_lexical_categories()
         seed_collocates()
+        seed_usage_labels()
         
 
 
@@ -102,13 +105,23 @@ class Vocabulary():
         return f'Vocabulary::Name={self.name}, Lexemes={self.lexeme_count()}, Lexical Entries={self.lexical_entry_count()}'
 
 
+    def __labels__(self, to_list: bool = False):
 
-      
+        entry_buffer: PrettyTable | List[UsageLabelModel] = PrettyTable(field_names=['No.', 'Label']) if not to_list else []
+        entries: Iterable[UsageLabelModel] = UsageLabelModel.select(UsageLabelModel.label)
+
+        if to_list:
+            return list(entry_buffer)
+        else:
+            for index, entry in enumerate(entries, 1):
+                entry_buffer.add_row([index, entry.label])
+            
+        return entry_buffer
 
 
 
 
-    def create_lexical_entry(self, lexeme: str, definition: str, category: LexicalCategory, collocate: str = None, sentence: str = None, for_practice: bool = False):
+    def create_lexical_entry(self, lexeme: str, definition: str, category: GrammaticalCategory, usage_labels:  UsageLabel | Iterable[UsageLabel] = None, collocate: str = None, sentence: str = None, for_practice: bool = False):
         """_summary_
 
         Args:
@@ -133,51 +146,73 @@ class Vocabulary():
             raise ContraintViolationError(message="Provided sentence exceeds maximum limit of characters.")
 
 
+        with self.__database.atomic() as transaction:
+            try:
+                lexeme_model: Lexeme = Lexeme.get_or_none(Lexeme.string == lexeme)
+                found_lexeme_flag: bool = False
 
-        lexeme_model: Lexeme = Lexeme.get_or_none(Lexeme.string == lexeme)
-        found_lexeme_flag: bool = False
+                if lexeme_model is None:
+                    lexeme_model = Lexeme.create(string=lexeme, example_sentence=None, PAC_file_path=None)
+                    lexeme_model.save()
+                else:
+                    found_lexeme_flag = True
 
-        if lexeme_model is None:
-            lexeme_model = Lexeme.create(string=lexeme, example_sentence=None, PAC_file_path=None)
-            lexeme_model.save()
-        else:
-            found_lexeme_flag = True
+                definition_model: Definition = Definition.get_or_none(Definition.definition == definition)
 
-        definition_model: Definition = Definition.get_or_none(Definition.definition == definition)
+                if definition_model is None:
+                    definition_model = Definition.create(definition=definition)
+                    definition_model.save()
+                elif found_lexeme_flag and LexicalEntry.get_or_none(LexicalEntry.lexeme.id == lexeme_model.get_id() and
+                                                                    LexicalEntry.definition == definition_model.get_id()) is not None:
+                        
+                        raise IntegrityError("Instance with same lexeme and definition already in database!")
+                    
 
-        if definition_model is None:
-            definition_model = Definition.create(definition=definition)
-            definition_model.save()
-        elif found_lexeme_flag and LexicalEntry.get_or_none(LexicalEntry.lexeme.id == lexeme_model.get_id() and
-                                                             LexicalEntry.definition == definition_model.get_id()) is not None:
                 
-                raise IntegrityError("Instance with same lexeme and definition already in database!")
-            
-
-        
-        lexical_category_model: LexicalCategoryModel = LexicalCategoryModel.get(LexicalCategoryModel.category == category.name)
-    
-
-        if collocate:
-            collocate_model: Collocate = Collocate.get_or_none(Collocate.collocate == collocate)
-
-            if collocate_model is None:
-                collocate_model = Collocate.create(collocate=collocate)
-                collocate_model.save()
+                lexical_category_model: LexicalCategoryModel = LexicalCategoryModel.get(LexicalCategoryModel.category == category.name)
 
 
-        lexical_entry: LexicalEntry = LexicalEntry.create(lexeme=lexeme_model.get_id(),
-                                                            definition=definition_model.get_id(),
-                                                            lexical_category=lexical_category_model.get_id(),
-                                                            collocate=collocate_model.get_id() if collocate else None,
-                                                            
-                                                            sentence=sentence,
-                                                            test_count=0,
-                                                            was_tested=False,
-                                                            match_sum=0,
-                                                            for_practice=for_practice)
 
-        lexical_entry.save()
+                if collocate:
+                    collocate_model: Collocate = Collocate.get_or_none(Collocate.collocate == collocate)
+
+                    if collocate_model is None:
+                        collocate_model = Collocate.create(collocate=collocate)
+                        collocate_model.save()
+
+
+                lexical_entry: LexicalEntry = LexicalEntry.create(lexeme=lexeme_model.get_id(),
+                                                                    definition=definition_model.get_id(),
+                                                                    lexical_category=lexical_category_model.get_id(),
+                                                                    collocate=collocate_model.get_id() if collocate else None,
+                                                                    
+                                                                    sentence=sentence,
+                                                                    test_count=0,
+                                                                    was_tested=False,
+                                                                    match_sum=0,
+                                                                    for_practice=for_practice)
+
+                lexical_entry.save()
+
+
+
+                if usage_labels is not None:
+                    if isinstance(usage_labels, UsageLabel):
+                        usage_labels = list(usage_labels)
+                    
+                    if isinstance(usage_labels, Iterable):
+                        for label in usage_labels:
+                            # usage_label = UsageLabelModel.get_by_id(label.value)
+                            EntryLabel.create(entry=lexical_entry, label=UsageLabelModel.get_by_id(label.value)).save()
+                        
+
+                    else:
+                        raise TypeError("Argument usage_labels must be an iterable!")
+            except Exception as e:
+                transaction.rollback()
+                raise e
+
+                
 
 
         
@@ -212,7 +247,8 @@ class Vocabulary():
             entry.sentence, 
             entry.test_count, 
             str( round((entry.match_sum / entry.test_count) * 100, 2) if entry.test_count else 0) + '%', 
-            entry.for_practice
+            entry.for_practice,
+            ", ".join([entry_label.label.label for entry_label in entry.entry_labels])
         ])
 
     
@@ -347,7 +383,7 @@ class Vocabulary():
         
 
 
-    FIELDS = ['id', 'lexeme', 'definition', 'category', 'collocate', 'test_count', 'was_tested', 'for_practice']
+    # FIELDS = ['id', 'lexeme', 'definition', 'category', 'collocate', 'test_count', 'was_tested', 'for_practice', 'label']
 
     @dataclass
     class EntryFilter(Filter):
@@ -365,6 +401,7 @@ class Vocabulary():
             test_count = 6
             was_tested = 7
             for_practice = 8
+            labels = 9
 
         FIELDS = [field.name for field in Field]
 
@@ -375,14 +412,15 @@ class Vocabulary():
 
 
     def __lexical_entry__(self, filter: EntryFilter = None, to_list: bool = False):
-        start = time.time()
+        # start = time.time()
         
         
 
         if to_list:
             entry_list: List[LexicalEntry] = []
         else:
-            table = PrettyTable(field_names=['No.', 'ID', 'Meaning', 'Lexical Category', 'Collocate', 'Sentence', 'Tests', 'Average Match Rate', 'For Practice'])
+            # print(Vocabulary.EntryFilter.FIELDS)
+            table = PrettyTable(field_names=['No.'] + Vocabulary.EntryFilter.FIELDS)
         
 
         # Construct the query
@@ -416,9 +454,9 @@ class Vocabulary():
             else:
                 self.__insert_lexical_entry_to_table(table=table, entry=entry, index=idx)
 
-        end = time.time()
+        # end = time.time()
 
-        print(end - start)
+        # print(end - start)
 
         return entry_list if to_list else table
 

@@ -1,10 +1,2 @@
 ID	lexeme	definition	lexical_category	collocate	sentence	for_practice	pac_file
-1	word	slovo	NOUN		Your essay should be no more than two thousand words long.	0	1
-2	word	slovo, sľub	NOUN		I said I'd visit him and I will keep my word.	0	1
-3	word	sprava(y), odkaz	NOUN		Has there been any word from Paul since he went to New York?	0	1
-4	unbeknownst	bez vedomia, nevediac	NOUN	to sb	Unbeknownst to me, he had rented out the apartment while I was away.	0	0
-5	only too	až príliš	IDIOM	well	As a small business owner, I know only too well how tough it is to succeed in this economy.	0	0
-6	only too	len veľmi	IDIOM	<ADJECTIVE>	Don't tell her the truth—she'd be only too glad to use it against you later.	0	0
-7	do sb's bidding	počúvať koho na slovo	PHRASE		She is very clever at getting people to do her bidding!	1	0
-8	acknowledged	uznávaný	ADJECTIVE		For instance, Hercules for his strength, courage and adventures is an acknowledged hero.	0	0
-9	hobbyist	nadšenec, fanúšik (svojho hobby)	NOUN		That decline affects many individual beekeepers, both professional and hobbyist.	0	0
+15	Better how?	Ako lepšie?	PHRASE		The new technology will be much better! Better how?
